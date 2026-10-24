@@ -1,68 +1,152 @@
-# OMPlayer
+<div align="center">
+  <img src="app/src/main/res/drawable-nodpi/omplayer_icon.png" alt="Iconița OMPlayer" width="112" />
+  <h1>OMPlayer</h1>
+  <p>Player Android pentru muzica ta, cu playlisturi, redare în fundal și descărcare audio din link.</p>
+  <p><strong>Android 12+</strong> · Kotlin · Jetpack Compose · Media3</p>
+</div>
 
-Aplicație Android nativă (Kotlin + Compose), pentru Android 12 / API 31 sau mai nou.
+## Ce poți face
 
-## Funcții
+- Ascultă melodiile din folderul `Music/OpenMusic`, cu titlu, artist și copertă.
+- Controlează redarea din playerul complet, playerul compact sau notificarea Android.
+- Folosește shuffle, repetare și bara de progres pentru a naviga în melodie.
+- Creează playlisturi salvate pe telefon și schimbă-le din meniul playerului.
+- Caută melodii sau artiști din lupă și actualizează biblioteca trăgând lista în jos.
+- Rotește telefonul: playerul apare în stânga, iar melodiile playlistului în dreapta.
+- Descarcă audio în format MP3, cu metadate și copertă atunci când sursa le oferă.
+- Trimite linkuri direct din meniul **Distribuie** din YouTube sau YouTube Music.
+- Alege interfața în română sau engleză din Setări.
+- Accesează biblioteca prin integrarea Android Auto.
 
-- Catalog din folderul dedicat `Music/OpenMusic`, ordonat după titlu, cu titlu, artist și album, inclusiv în Android Auto.
-- Permisiune audio solicitată pe telefon; biblioteca se actualizează la revenirea în aplicație sau manual.
-- ExoPlayer într-un MediaLibraryService, cu redare în fundal și controale media de sistem.
-- Tratarea audio focus și pauză la deconectarea căștilor.
-- Catalog paginat expus către Android Auto și rezolvarea pieselor după ID.
-- Rezolvarea cererilor de redare vocală după titlu sau artist (prima potrivire).
-- Redare, pauză și navigare între piesele listei pe telefon.
-- Descărcare audio din link cu yt-dlp și FFmpeg, direct pe telefon: MP3, progres, anulare și notificare în fundal.
-- Primire prin meniul Distribuie din YouTube / YouTube Music, cu pornire automată și coadă pentru linkurile trimise în timpul unei descărcări.
-- Încorporarea miniaturii sursei drept copertă în MP3, când sursa oferă o imagine.
-- Apăsare lungă pe o melodie pentru ștergere, cu confirmare; fișierul este șters din `Music/OpenMusic` și eliminat din lista de redare. Pentru fișiere copiate de altă aplicație, Android poate cere suplimentar acordul de ștergere.
+## Instalare și prima utilizare
 
-## Interfață și playlisturi
+1. Compilează APK-ul urmând instrucțiunile de mai jos și instalează-l pe un dispozitiv cu **Android 12 / API 31** sau mai nou.
+2. Deschide **OMPlayer** și acordă permisiunea de acces audio.
+3. Copiază melodii în `Music/OpenMusic` sau descarcă o piesă dintr-un link.
+4. Trage lista în jos pentru actualizare și apasă o melodie pentru redare.
 
-- Player complet cu copertă, bară de progres, shuffle și repetare; player compact sub bibliotecă.
-- În orientare orizontală, playerul și lista playlistului sunt afișate alăturat.
-- Playlisturi salvate pe telefon. Crearea se face din meniul principal; apăsarea lungă pe un playlist deschide editarea și ștergerea.
-- Coperți și meniuri pentru fiecare melodie, căutare din lupă și actualizare prin tragere în jos.
-- Setări pentru limba română sau engleză și actualizarea manuală a motorului de descărcare.
+Folderul este creat automat. Biblioteca afișează melodiile aflate direct în acest folder și marcate ca muzică în MediaStore.
+
+## Biblioteca și playlisturile
+
+| Acțiune | Cum o folosești |
+| --- | --- |
+| Creează un playlist | Meniul **⋮ → Playlist nou**, apoi alegi numele și melodiile. |
+| Schimbă playlistul | Selectează playlistul deasupra listei sau din meniul playerului complet. |
+| Afișează biblioteca completă | Alege **Toate piesele**. |
+| Editează sau șterge un playlist | Ține apăsat pe numele playlistului. Ștergerea playlistului păstrează fișierele audio. |
+| Deschide opțiunile unei melodii | Apasă **⋮** în dreptul ei sau ține apăsat pe rând. |
+| Adaugă sau elimină o piesă din playlist | Folosește meniul melodiei. |
+| Șterge un fișier audio | Alege **Șterge de pe telefon** și confirmă. Android poate cere acord suplimentar pentru fișiere create de alte aplicații. |
+| Caută o melodie | Apasă lupa de lângă titlul bibliotecii. Căutarea se închide din **X**. |
+
+Playlisturile se salvează local pe telefon. Playerul compact deschide playerul complet la atingerea copertei sau a titlului.
 
 ## Descărcare audio
 
-Din YouTube sau YouTube Music, alege **Distribuie → OMPlayer**. Aplicația extrage linkul din mesaj și începe descărcarea automat, inclusiv dacă era deja deschisă. Alte linkuri distribuite în timpul descărcării sunt procesate pe rând. Anularea oprește descărcarea curentă și golește coada; coada nu se păstrează după oprirea procesului.
+### Din aplicație
 
-Miniatura videoclipului este convertită în JPEG și încorporată în metadatele MP3 cu yt-dlp și FFmpeg. Imaginea rămâne în fișier când îl copiezi pe alt dispozitiv. Pentru o sursă fără miniatură se salvează doar sunetul; fișierele descărcate anterior nu sunt modificate.
+Deschide **⋮ → Descarcă audio din link**, introdu un URL HTTP/HTTPS valid și apasă **Descarcă MP3**. Butonul se activează doar pentru un link valid, iar câmpul se golește după descărcarea reușită.
 
-Apasă „Descarcă audio din link”, introdu un URL HTTP/HTTPS și alege „Descarcă MP3”. Se descarcă o singură piesă, fără playlist; se extrage numai sunetul. Rezultatul este publicat prin MediaStore în `Music/OpenMusic` și biblioteca se actualizează automat. Folderul este creat automat la deschiderea aplicației și este vizibil în managerul de fișiere. Biblioteca aplicației și Android Auto afișează numai melodiile aflate direct în acest folder. Permisiunea audio este necesară pentru afișarea bibliotecii. Permisiunea notificărilor permite afișarea progresului în bara de notificări; refuzarea ei nu blochează descărcarea.
+Se extrage o singură piesă, fără descărcarea unui playlist online. MP3-ul este salvat în `Music/OpenMusic`, iar biblioteca se actualizează automat. Miniatura sursei este încorporată drept copertă, când este disponibilă.
 
-Aplicația încearcă întâi descărcarea cu motorul instalat. Dacă extragerea eșuează, actualizează yt-dlp de pe canalul stabil și reîncearcă o singură dată. Motorul poate fi actualizat și manual din Setări. Componentele EJS necesare sunt încărcate din proiectul oficial yt-dlp. Dacă sursa refuză accesul, dialogul afișează eroarea concretă pentru diagnostic.
+### Din YouTube sau YouTube Music
 
-Descărcarea continuă când închizi dialogul sau treci în altă aplicație. Poate fi anulată din dialog sau din notificare. Fișierele temporare sunt șterse după terminare sau anulare; o descărcare întreruptă de oprirea procesului trebuie repornită. Sursele care cer autentificare, DRM sau nu sunt compatibile cu versiunea inclusă de yt-dlp pot eșua.
+Alege **Distribuie → OMPlayer**. Aplicația preia linkul și pornește descărcarea. Linkurile trimise în timpul unei descărcări sunt puse în coadă și procesate pe rând.
 
-Integrarea folosește [youtubedl-android 0.18.1](https://github.com/yausername/youtubedl-android), [yt-dlp](https://github.com/yt-dlp/yt-dlp) și [FFmpeg](https://ffmpeg.org/). Pachetele native măresc dimensiunea APK-ului. La distribuire se aplică licențele componentelor incluse.
+### Progres și actualizarea motorului
 
-## Rulare
+- Descărcarea continuă când închizi dialogul sau treci în altă aplicație.
+- Poți anula din dialog sau din notificare. Anularea golește și coada de linkuri.
+- Aplicația încearcă întâi motorul instalat. Dacă extragerea eșuează, încearcă actualizarea yt-dlp și reia descărcarea o singură dată.
+- Poți verifica manual actualizarea din **⋮ → Setări → Actualizează motorul de descărcare**.
+- Permisiunea pentru notificări permite afișarea progresului în bara Android; refuzarea ei nu blochează descărcarea.
 
-Deschide directorul în Android Studio și sincronizează Gradle. Rulează configurația `app` pe un telefon cu Android 12+. Descarcă o piesă din link sau copiază fișiere audio în `Music/OpenMusic`, acordă accesul audio și selectează o piesă.
+## Setări
 
-Cu un JDK compatibil cu proiectul:
+În **⋮ → Setări** poți alege **Română** sau **English** și poți actualiza motorul de descărcare. Limba aleasă se păstrează la redeschiderea aplicației.
 
-```powershell
-./gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+## Compilare
+
+### Cerințe
+
+- Android Studio și Android SDK configurate.
+- Android SDK **37**, conform configurației proiectului.
+- Java pentru pornirea Gradle; proiectul configurează daemonul Gradle cu toolchain **JDK 25**.
+- Acces la internet la prima sincronizare pentru descărcarea dependențelor și a toolchainului, dacă nu sunt deja instalate.
+
+### Clonează proiectul
+
+```sh
+git clone https://github.com/danielbradea/Open-Music-Player.git
+cd Open-Music-Player
 ```
 
-## Verificare manuală
+Deschide directorul în Android Studio, sincronizează Gradle și rulează configurația `app` pe un dispozitiv sau emulator compatibil.
 
-1. Verifică permisiunea refuzată, acordată și revocată din setări, precum și biblioteca goală.
-2. Pornește o piesă și verifică pauză, reluare, anterior și următor.
-3. Blochează telefonul și verifică redarea și comenzile din notificarea media.
-4. Deconectează căștile și verifică pauza; testează și întreruperea prin altă sursă audio.
-5. Pentru Android Auto, acordă întâi permisiunea pe telefon. Testează cu Desktop Head Unit sau o mașină compatibilă. Pentru un APK instalat manual poate fi necesară opțiunea pentru surse necunoscute din setările de dezvoltator Android Auto.
-6. În Android Auto verifică biblioteca, selectarea unei piese și comenzile de transport.
+### Din terminal
 
-Implementarea urmează modelul Media3 documentat la https://developer.android.com/media/media3/session/background-playback și https://developer.android.com/media/implement/playback-app.
+Pe Windows, cu `JAVA_HOME` configurat:
 
-## Limite
+```powershell
+.\gradlew.bat :app:assembleDebug
+```
 
-Nu există încă autentificare la sursele online sau restaurarea cozii după oprirea procesului. Catalogul include înregistrările marcate ca muzică de MediaStore. Compatibilitatea efectivă cu Android Auto necesită verificare pe DHU sau dispozitiv; declararea serviciului nu înlocuiește testarea și cerințele de distribuție.
+Pe Linux sau macOS:
+
+```sh
+./gradlew :app:assembleDebug
+```
+
+APK-ul rezultat se găsește în:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+Nu adăuga în Git configurația locală `local.properties`, cheile de semnare sau fișierele generate de compilare.
+
+## Verificări
+
+Teste unitare și analiză statică pe Windows:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug
+```
+
+Teste pe un dispozitiv sau emulator conectat:
+
+```powershell
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+Pentru verificarea manuală, testează acordarea și refuzarea permisiunilor, redarea în fundal, deconectarea căștilor, orientarea ecranului, playlisturile și descărcarea cu succes, eroare sau anulare.
+
+## Android Auto
+
+Integrarea folosește un `MediaLibraryService` Media3 pentru a expune biblioteca și comenzile de redare. Acordă mai întâi accesul audio pe telefon.
+
+Compatibilitatea trebuie verificată pe Desktop Head Unit sau într-o mașină compatibilă. Pentru un APK instalat manual poate fi necesară activarea surselor necunoscute în setările de dezvoltator Android Auto.
+
+## Tehnologii
+
+- **Kotlin și Jetpack Compose** pentru interfață.
+- **Media3 / ExoPlayer** pentru redare și sesiunea media.
+- **MediaStore** pentru biblioteca și salvarea fișierelor audio.
+- [youtubedl-android](https://github.com/yausername/youtubedl-android), [yt-dlp](https://github.com/yt-dlp/yt-dlp) și [FFmpeg](https://ffmpeg.org/) pentru extragere, conversie și metadate.
+
+## Limitări
+
+- Biblioteca este limitată la folderul `Music/OpenMusic`.
+- Nu există autentificare pentru surse online sau sincronizare a playlisturilor între dispozitive.
+- Coada de descărcări nu se păstrează după oprirea procesului; descărcările întrerupte trebuie repornite.
+- Sursele private, cele cu DRM sau cele incompatibile cu motorul inclus pot eșua.
+- Bibliotecile native pentru descărcare și conversie măresc dimensiunea APK-ului.
+
+## Contribuții
+
+Pentru o problemă, deschide un [issue](https://github.com/danielbradea/Open-Music-Player/issues) cu versiunea Android, pașii de reproducere și eventualele mesaje de eroare. Pentru modificări, trimite un pull request și descrie verificările efectuate.
 
 ## Licență
 
-Codul proiectului este distribuit sub GPL-3.0, conform fișierului [LICENSE](LICENSE). Dependențele și componentele native incluse au propriile licențe; distribuirea APK-ului trebuie să respecte și obligațiile acestora.
+Codul proiectului este distribuit sub **GPL-3.0**, conform fișierului [LICENSE](LICENSE). Componentele terțe incluse au propriile licențe și obligații de distribuție.
