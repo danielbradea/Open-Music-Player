@@ -106,6 +106,18 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Nu adăuga în Git configurația locală `local.properties`, cheile de semnare sau fișierele generate de compilare.
 
+## Build automat pe GitHub
+
+Workflow-ul [Build Android APK](https://github.com/danielbradea/Open-Music-Player/actions/workflows/android-build.yml) compilează un APK **debug** și rulează testele unitare și Lint la fiecare push pe `main` sau pull request. Modificările doar în Markdown sau LICENSE nu declanșează buildul. Îl poți porni manual din **Actions → Build Android APK → Run workflow**.
+
+După o rulare reușită:
+
+1. Deschide fila **Actions** și selectează rularea.
+2. În secțiunea **Artifacts**, descarcă **OMPlayer-debug-numărul_rulării**.
+3. Dezarhivează fișierul ZIP și instalează `OMPlayer-debug.apk` pe telefon.
+
+APK-ul se păstrează ca artifact timp de **30 de zile**, iar rapoartele de teste și Lint timp de **7 zile**. Linkul artifactului apare și în rezumatul rulării. Descărcarea artifactelor necesită autentificare pe GitHub. APK-ul nu este publicat automat în Releases și nu este adăugat în sursele Git.
+
 ## Verificări
 
 Teste unitare și analiză statică pe Windows:
