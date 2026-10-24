@@ -20,7 +20,7 @@
 
 ## Instalare și prima utilizare
 
-1. Compilează APK-ul urmând instrucțiunile de mai jos și instalează-l pe un dispozitiv cu **Android 12 / API 31** sau mai nou.
+1. Descarcă APK-ul din [Releases](https://github.com/danielbradea/Open-Music-Player/releases) sau compilează-l urmând instrucțiunile de mai jos. Instalează-l pe un dispozitiv cu **Android 12 / API 31** sau mai nou.
 2. Deschide **OMPlayer** și acordă permisiunea de acces audio.
 3. Copiază melodii în `Music/OpenMusic` sau descarcă o piesă dintr-un link.
 4. Trage lista în jos pentru actualizare și apasă o melodie pentru redare.
@@ -116,7 +116,18 @@ După o rulare reușită:
 2. În secțiunea **Artifacts**, descarcă **OMPlayer-debug-numărul_rulării**.
 3. Dezarhivează fișierul ZIP și instalează `OMPlayer-debug.apk` pe telefon.
 
-APK-ul se păstrează ca artifact timp de **30 de zile**, iar rapoartele de teste și Lint timp de **7 zile**. Linkul artifactului apare și în rezumatul rulării. Descărcarea artifactelor necesită autentificare pe GitHub. APK-ul nu este publicat automat în Releases și nu este adăugat în sursele Git.
+APK-ul se păstrează ca artifact timp de **30 de zile**, iar rapoartele de teste și Lint timp de **7 zile**. Linkul artifactului apare și în rezumatul rulării. Descărcarea artifactelor necesită autentificare pe GitHub. La pushul unui tag `v*`, APK-ul este publicat și în GitHub Releases, cu numele `OMPlayer-VERSIUNE.apk` și un fișier SHA-256. Fișierele APK nu sunt adăugate în sursele Git.
+
+### Publicarea unei versiuni
+
+Actualizează `versionName` și mărește `versionCode` în `app/build.gradle.kts`, publică modificările, apoi creează un tag cu versiunea respectivă:
+
+```sh
+git tag v1.3
+git push origin v1.3
+```
+
+Folosește un tag nou pentru fiecare versiune. După compilare și verificări, workflow-ul creează release-ul și atașează APK-ul. APK-urile publicate sunt builduri debug; semnătura lor poate diferi între rulări și de APK-urile compilate local.
 
 ## Verificări
 

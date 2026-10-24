@@ -3,6 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths-ignore:
       - '**/*.md'
       - LICENSE
@@ -79,3 +80,42 @@ jobs:
           echo '## OMPlayer debug APK' >> "$GITHUB_STEP_SUMMARY"
           echo "[Download APK artifact]($APK_URL)" >> "$GITHUB_STEP_SUMMARY"
           echo 'Unzip the artifact and install OMPlayer-debug.apk. The artifact is retained for 30 days.' >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Publish versioned APK
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested APK
+        uses: actions/download-artifact@v4
+        with:
+          name: OMPlayer-debug-${{ github.run_number }}
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APK="dist/OMPlayer-${VERSION}.apk"
+          mv dist/OMPlayer-debug.apk "$APK"
+          sha256sum "$APK" > "${APK}.sha256"
+          cat > release-notes.md <<'NOTES'
+          ## Instalare
+          Descarcă fișierul APK din Assets și deschide-l pe un telefon cu Android 12 sau mai nou.
+
+          Acest APK este un build debug, semnat automat de mediul GitHub Actions. La instalarea peste un APK semnat cu altă cheie, Android poate cere dezinstalarea versiunii vechi; dezinstalarea elimină setările și playlisturile locale ale aplicației.
+
+          Funcții: player complet și compact, playlisturi locale, redare în fundal, shuffle, repetare, descărcare MP3 din link și interfață în română sau engleză.
+          NOTES
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$APK" "${APK}.sha256" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$APK" "${APK}.sha256" --verify-tag --title "OMPlayer ${VERSION}" --notes-file release-notes.md
+          fi
+          echo "## [OMPlayer ${VERSION} Release](https://github.com/${GH_REPO}/releases/tag/${GITHUB_REF_NAME})" >> "$GITHUB_STEP_SUMMARY"
