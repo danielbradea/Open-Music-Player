@@ -80,6 +80,11 @@ class MainActivity : ComponentActivity() {
         var current by remember { mutableStateOf<MediaItem?>(null) }
         var playing by remember { mutableStateOf(false) }
         var playerExpanded by rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(playerExpanded) {
+            requestedOrientation = if (playerExpanded)
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
         var error by remember { mutableStateOf<String?>(null) }
         var deleteTarget by remember { mutableStateOf<MediaItem?>(null) }
         var deleting by remember { mutableStateOf(false) }
