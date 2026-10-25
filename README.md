@@ -8,7 +8,8 @@
 ## Ce poți face
 
 - Ascultă melodiile din folderul `Music/OpenMusic`, cu titlu, artist și copertă.
-- Controlează redarea din playerul complet, playerul compact sau notificarea Android.
+- Controlează redarea din playerul complet, playerul compact sau notificarea Android, cu tranziție animată între cele două playere.
+- Regăsește piesa, poziția de ascultare, playlistul, shuffle și repetarea la redeschidere. La pornirea complet nouă, piesa este pregătită în pauză.
 - Folosește shuffle, repetare și bara de progres pentru a naviga în melodie.
 - Creează playlisturi salvate pe telefon și schimbă-le din meniul playerului.
 - Caută melodii sau artiști din lupă și actualizează biblioteca trăgând lista în jos.

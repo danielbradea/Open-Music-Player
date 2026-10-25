@@ -3,6 +3,16 @@ package com.bid90.omp
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
@@ -51,7 +61,7 @@ private val PlayerMuted = Color(0xFFB7ACC9)
 private val PlayerAccent = Color(0xFFE8A4FF)
 
 @Composable
-internal fun FullPlayer(item: MediaItem, controller: MediaController?, onClose: () -> Unit, onDelete: () -> Unit,
+internal fun FullPlayer(item: MediaItem, controller: MediaController?, visibility: MutableTransitionState<Boolean>, onClose: () -> Unit, onDelete: () -> Unit,
                         playlists: List<MusicPlaylist>, selectedPlaylistId: String?,
                         onPlaylistSelected: (String?) -> Unit, playlistTracks: List<MediaItem>, onNewPlaylist: () -> Unit, onDownload: () -> Unit) {
     val resources = androidx.compose.ui.platform.LocalResources.current
@@ -89,6 +99,12 @@ internal fun FullPlayer(item: MediaItem, controller: MediaController?, onClose: 
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BackHandler(onBack = onClose)
+        AnimatedVisibility(visibleState = visibility,
+            enter = fadeIn(tween(260)) + slideInVertically(tween(300)) { it / 8 } +
+                scaleIn(tween(300), initialScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(220)) { it / 10 } +
+                scaleOut(tween(220), targetScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+            modifier = Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF29243E)) {
             Box(Modifier.fillMaxSize().background(com.bid90.omp.ui.theme.MusicBackground)) {
                 BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -245,6 +261,7 @@ internal fun FullPlayer(item: MediaItem, controller: MediaController?, onClose: 
                 }
             }
         }
+    }
     }
 }
 

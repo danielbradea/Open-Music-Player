@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.LibraryResult
@@ -23,6 +24,24 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var library: LocalMusic
     private val executor: ListeningExecutorService = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor())
 
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private lateinit var playbackStore: PlaybackStore
+    private var restoringQueue = true
+
+    private var destroyed = false
+    private val checkpoint = object : Runnable {
+        override fun run() {
+            if (destroyed) return
+            if (!restoringQueue) playbackStore.save(session.player)
+            handler.postDelayed(this, 2000)
+        }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!restoringQueue) playbackStore.save(session.player)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onCreate() {
         super.onCreate()
         library = LocalMusic(this)
@@ -32,14 +51,44 @@ class PlaybackService : MediaLibraryService() {
             setHandleAudioBecomingNoisy(true)
             setWakeMode(C.WAKE_MODE_LOCAL)
         }
+        playbackStore = PlaybackStore(this)
+        val saved = playbackStore.load()
+        player.shuffleModeEnabled = saved.shuffle
+        player.repeatMode = saved.repeat.takeIf { it in Player.REPEAT_MODE_OFF..Player.REPEAT_MODE_ALL } ?: Player.REPEAT_MODE_OFF
+        player.addListener(object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (restoringQueue && player.mediaItemCount > 0) restoringQueue = false
+                if (!restoringQueue) playbackStore.save(player)
+            }
+        })
         session = MediaLibrarySession.Builder(this, player, Callback())
             .setSessionActivity(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build()
+        executor.execute {
+            val tracks = library.tracks().associateBy { it.mediaId }
+            val restored = saved.resolve(tracks.keys)
+            handler.post {
+                if (destroyed) return@post
+                if (player.mediaItemCount == 0 && restored.queueIds.isNotEmpty()) {
+                    player.setMediaItems(restored.queueIds.mapNotNull(tracks::get),
+                        restored.queueIds.indexOf(restored.currentId).coerceAtLeast(0), restored.positionMs)
+                    player.prepare()
+                    // Restore the listening position without starting music unexpectedly on launch.
+                    player.playWhenReady = false
+                }
+                restoringQueue = player.mediaItemCount == 0 && saved.queueIds.isNotEmpty()
+                if (!restoringQueue) playbackStore.save(player)
+                handler.post(checkpoint)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
 
     override fun onDestroy() {
+        destroyed = true
+        handler.removeCallbacksAndMessages(null)
+        if (!restoringQueue) playbackStore.save(session.player)
         session.player.release()
         session.release()
         executor.shutdownNow()

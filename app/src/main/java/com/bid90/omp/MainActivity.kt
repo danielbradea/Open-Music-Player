@@ -59,14 +59,29 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent?.action == Intent.ACTION_SEND && intent.hasExtra(Intent.EXTRA_TEXT)) sharedIntent = intent
+        @Suppress("DEPRECATION")
+        val pendingShare = savedInstanceState?.getParcelable<Intent>("pending_audio_share")
+        sharedIntent = pendingShare
+        if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) {
+            if (intent.action == Intent.ACTION_SEND && intent.hasExtra(Intent.EXTRA_TEXT)) sharedIntent = Intent(intent).putExtra("share_request_id", java.util.UUID.randomUUID().toString())
+        }
+        clearShareLaunchIntent()
         setContent { OpenMusicPlayerTheme { MusicScreen() } }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
-        if (intent.action == Intent.ACTION_SEND) sharedIntent = intent
+        if (intent.action == Intent.ACTION_SEND) sharedIntent = Intent(intent).putExtra("share_request_id", java.util.UUID.randomUUID().toString())
+        clearShareLaunchIntent()
+    }
+
+    private fun clearShareLaunchIntent() {
+        setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        sharedIntent?.let { outState.putParcelable("pending_audio_share", it) }
+        super.onSaveInstanceState(outState)
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -80,8 +95,10 @@ class MainActivity : ComponentActivity() {
         var current by remember { mutableStateOf<MediaItem?>(null) }
         var playing by remember { mutableStateOf(false) }
         var playerExpanded by rememberSaveable { mutableStateOf(false) }
-        LaunchedEffect(playerExpanded) {
-            requestedOrientation = if (playerExpanded)
+        val playerTransition = remember { androidx.compose.animation.core.MutableTransitionState(false) }
+        playerTransition.targetState = playerExpanded
+        LaunchedEffect(playerExpanded, playerTransition.currentState) {
+            requestedOrientation = if (playerExpanded || playerTransition.currentState)
                 android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
@@ -166,7 +183,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         val download by AudioDownloadService.state.collectAsState()
-        var downloadDialog by rememberSaveable { mutableStateOf(false) }
+        var downloadDialog by remember { mutableStateOf(false) }
         var downloadUrl by rememberSaveable { mutableStateOf("") }
         var downloadError by remember { mutableStateOf<String?>(null) }
         fun startDownload(url: String = downloadUrl) {
@@ -183,11 +200,20 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(sharedIntent) {
             val received = sharedIntent ?: return@LaunchedEffect
+            val receipt = received.getStringExtra("share_request_id") ?: java.util.UUID.randomUUID().toString()
+            val sharePreferences = getSharedPreferences("handled_shares", MODE_PRIVATE)
+            val handled = sharePreferences.getStringSet("receipts", emptySet()).orEmpty()
+            if (receipt in handled) {
+                sharedIntent = null
+                clearShareLaunchIntent()
+                return@LaunchedEffect
+            }
             val link = SharedAudioLink.extract(received)
             // Consume the share before starting work so rotation cannot download it twice.
             sharedIntent = null
-            received.removeExtra(Intent.EXTRA_TEXT)
-            setIntent(received)
+            clearShareLaunchIntent()
+            // Persist the receipt before starting a download, even across process recreation.
+            sharePreferences.edit().putStringSet("receipts", (handled.toList().takeLast(63) + receipt).toSet()).commit()
             downloadDialog = true
             if (link == null) downloadError = getString(R.string.invalid_share)
             else {
@@ -298,7 +324,11 @@ class MainActivity : ComponentActivity() {
         val playlistStore = remember { PlaylistStore(this@MainActivity) }
         var playlists by remember { mutableStateOf(playlistStore.load()) }
         var createPlaylist by rememberSaveable { mutableStateOf(false) }
-        var selectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+        val libraryPreferences = remember { getSharedPreferences("library_state", MODE_PRIVATE) }
+        var selectedPlaylistId by rememberSaveable { mutableStateOf(libraryPreferences.getString("playlist", null)) }
+        LaunchedEffect(selectedPlaylistId) {
+            libraryPreferences.edit().putString("playlist", selectedPlaylistId).apply()
+        }
         val selectedPlaylist = playlists.firstOrNull { it.id == selectedPlaylistId }
         val playlistTracks = remember(tracks, selectedPlaylist) {
             if (selectedPlaylist == null) tracks else {
@@ -436,8 +466,8 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(12.dp))
             }
         }
-        if (playerExpanded && current != null) {
-            FullPlayer(current!!, controller, onClose = { playerExpanded = false },
+        if ((playerTransition.targetState || playerTransition.currentState) && current != null) {
+            FullPlayer(current!!, controller, visibility = playerTransition, onClose = { playerExpanded = false },
                 onDelete = { playerExpanded = false; deleteError = null; deleteTarget = current },
                 playlists = playlists, selectedPlaylistId = selectedPlaylistId, playlistTracks = playlistTracks,
                 onNewPlaylist = { playerExpanded = false; createPlaylist = true },
