@@ -111,7 +111,16 @@ jobs:
 
           Acest APK este un build debug, semnat automat de mediul GitHub Actions. La instalarea peste un APK semnat cu altă cheie, Android poate cere dezinstalarea versiunii vechi; dezinstalarea elimină setările și playlisturile locale ale aplicației.
 
-          Funcții: player complet și compact, playlisturi locale, redare în fundal, shuffle, repetare, descărcare MP3 din link și interfață în română sau engleză.
+          ## Noutăți
+          - Selectarea melodiilor din playlisturi YouTube înainte de descărcare, cu numele original sau un nume personalizat pentru playlistul local.
+          - Progres pentru întregul playlist și pentru fiecare melodie: descărcată, în curs, în așteptare, eșuată sau anulată.
+          - Salvarea playlisturilor în folder și restaurarea după reinstalare.
+          - Restaurarea piesei, poziției, playlistului, shuffle și repetării la redeschidere.
+          - Tranziție animată între playerul compact și cel complet.
+          - Remedierea reluării vechilor linkuri de descărcare la redeschidere.
+          - Iconițe PNG transparente pentru toate densitățile Android.
+
+          Pentru salvarea playlisturilor în afara aplicației, alege un folder din Setări → Alege folderul / Restaurează. După reinstalare selectează același folder și păstrează fișierele audio.
           NOTES
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "$APK" "${APK}.sha256" --clobber
