@@ -78,4 +78,21 @@
     <string name="engine_update_failed">Update failed. Check your connection and try again.</string>
     <string name="engine_wait_download">Engine updates are available when the download finishes.</string>
     <string name="playlist_options">Playlist options</string>
+    <string name="download_subtitle">MP3 · songs and YouTube playlists</string>
+    <string name="playlist_loading">Loading playlist songs…</string>
+    <string name="playlist_load_error">Could not load playlist. Check the link, public access and connection.</string>
+    <string name="retry">Try again</string>
+    <string name="playlist_selection_count">%1$d of %2$d songs selected</string>
+    <string name="create_local_playlist">Also create a playlist in OMPlayer</string>
+    <string name="original_or_custom_name">Keep the YouTube name or enter a custom name.</string>
+    <string name="select_all">Select all</string>
+    <string name="select_none">Select none</string>
+    <string name="unavailable_song">Private or unavailable</string>
+    <string name="download_selected">Download %1$d songs</string>
+    <string name="playlist_storage_title">Playlists saved to a folder</string>
+    <string name="playlist_storage_info">Choose a folder, such as Music/OpenMusic. Playlists are saved automatically to OMPlayer-playlists.json. After reinstalling, choose the same folder to restore; keep the audio files too.</string>
+    <string name="choose_playlist_folder">Choose folder / Restore</string>
+    <string name="playlist_folder_connected">Folder connected. %1$d playlists restored. Changes are saved automatically.</string>
+    <string name="playlist_folder_error">Could not save or restore playlists. Choose the folder again and check access.</string>
+    <string name="folder_needs_audio">Allow audio access first to restore playlist songs.</string>
 </resources>

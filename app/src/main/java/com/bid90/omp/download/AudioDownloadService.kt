@@ -25,7 +25,8 @@ data class AudioDownloadState(
     val details: String = "",
     val queued: Int = 0,
     val completed: Long = 0,
-    val completedUrl: String = ""
+    val completedUrl: String = "",
+    val finishedSource: String = ""
 )
 
 class AudioDownloadService : Service() {
@@ -45,7 +46,8 @@ class AudioDownloadService : Service() {
     @Volatile private var cancelled = false
     private var task: Job? = null
     private var processId = ""
-    private val pending = ConcurrentLinkedQueue<String>()
+    private data class DownloadJob(val url: String, val playlistId: String? = null, val sourceUrl: String = url)
+    private val pending = ConcurrentLinkedQueue<DownloadJob>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -76,20 +78,28 @@ class AudioDownloadService : Service() {
             if (task == null) stopSelf()
             return START_NOT_STICKY
         }
-        val url = intent?.getStringExtra("url").orEmpty().trim()
-        if (!validUrl(url)) { if (task == null) stopSelf(); return START_NOT_STICKY }
+        val urls = intent?.getStringArrayListExtra("urls")?.filter(::validUrl)
+            ?: listOfNotNull(intent?.getStringExtra("url")?.trim()?.takeIf(::validUrl))
+        if (urls.isEmpty()) { if (task == null) stopSelf(); return START_NOT_STICKY }
+        val playlistName = intent?.getStringExtra("playlist_name")?.trim()?.takeIf { it.isNotBlank() }
+        val playlistId = playlistName?.let { com.bid90.omp.PlaylistStore(this).create(it) }
+        val source = intent?.getStringExtra("source_url") ?: urls.first()
+        val jobs = urls.map { DownloadJob(it, playlistId, source) }
         if (task != null) {
-            pending.add(url)
+            pending.addAll(jobs)
             mutableState.value = mutableState.value.copy(queued = pending.size)
-        } else startDownload(url)
+        } else {
+            pending.addAll(jobs.drop(1))
+            startDownload(jobs.first())
+        }
         return START_NOT_STICKY
     }
-
-    private fun startDownload(url: String) {
+    private fun startDownload(job: DownloadJob) {
+        val url = job.url
         cancelled = false
         processId = UUID.randomUUID().toString()
         mutableState.value = mutableState.value.copy(running = true, progress = 0, queued = pending.size,
-            details = "", message = "Pregătesc descărcarea…")
+            details = "", finishedSource = "", message = "Pregătesc descărcarea…")
         startForeground(NOTIFICATION, notification("Pregătesc descărcarea…", 0))
         task = scope.launch {
             val directory = File(cacheDir, "audio-$processId")
@@ -150,14 +160,16 @@ class AudioDownloadService : Service() {
                 directory.listFiles()?.singleOrNull { it.extension == "mp3" && it.length() > 0 }
                     ?: error("Nu s-a obținut un fișier audio.")
                 }
-                publishAudio(file)
-                mutableState.value = AudioDownloadState(message = "Salvat în ${LocalMusic.FOLDER_NAME}. Piesa este în bibliotecă.",
+                val mediaId = publishAudio(file)
+                job.playlistId?.let { com.bid90.omp.PlaylistStore(this@AudioDownloadService).addTrack(it, mediaId) }
+                mutableState.value = AudioDownloadState(running = pending.isNotEmpty(), message = "Salvat în ${LocalMusic.FOLDER_NAME}. Piesa este în bibliotecă.",
                     queued = pending.size,
-                    completed = mutableState.value.completed + 1, completedUrl = url)
+                    completed = mutableState.value.completed + 1, completedUrl = job.sourceUrl,
+                    finishedSource = if (pending.isEmpty()) job.sourceUrl else "")
             } catch (e: Exception) {
                 android.util.Log.e("AudioDownload", "Download failed", e)
                 val details = DownloadEngine.errorDetails(e)
-                mutableState.value = mutableState.value.copy(running = false, progress = 0,
+                mutableState.value = mutableState.value.copy(running = pending.isNotEmpty() && !cancelled, progress = 0,
                     message = if (cancelled || e is CancellationException) "Descărcare anulată."
                     else DownloadEngine.errorMessage(details),
                     details = if (cancelled || e is CancellationException) "" else details)
@@ -176,7 +188,7 @@ class AudioDownloadService : Service() {
         }
     }
 
-    private fun publishAudio(file: File) {
+    private fun publishAudio(file: File): String {
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
@@ -191,6 +203,7 @@ class AudioDownloadService : Service() {
                 ?: error("Nu pot scrie fișierul audio.")
             if (cancelled) throw CancellationException()
             contentResolver.update(uri, ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }, null, null)
+            return android.content.ContentUris.parseId(uri).toString()
         } catch (e: Exception) {
             contentResolver.delete(uri, null, null)
             throw e

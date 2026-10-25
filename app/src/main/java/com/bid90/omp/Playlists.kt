@@ -22,9 +22,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-data class MusicPlaylist(val id: String, val name: String, val trackIds: List<String>)
+data class MusicPlaylist(val id: String, val name: String, val trackIds: List<String>,
+                         val trackFiles: Map<String, String> = emptyMap())
 
-internal class PlaylistStore(context: Context) {
+internal class PlaylistStore(private val context: Context) {
+    companion object { private val lock = Any() }
     private val preferences = context.getSharedPreferences("playlists", Context.MODE_PRIVATE)
     fun load(): List<MusicPlaylist> = runCatching {
         val array = JSONArray(preferences.getString("lists", "[]"))
@@ -32,19 +34,40 @@ internal class PlaylistStore(context: Context) {
             val entry = array.getJSONObject(index)
             val ids = entry.getJSONArray("tracks")
             MusicPlaylist(entry.getString("id"), entry.getString("name"),
-                List(ids.length()) { ids.getString(it) })
+                List(ids.length()) { ids.getString(it) },
+                entry.optJSONObject("files")?.let { files -> files.keys().asSequence().associateWith { files.getString(it) } }.orEmpty())
         }
     }.getOrDefault(emptyList())
 
-    fun save(playlists: List<MusicPlaylist>) {
+    fun save(playlists: List<MusicPlaylist>) = synchronized(lock) {
         val array = JSONArray()
         playlists.forEach { playlist ->
             array.put(JSONObject().put("id", playlist.id).put("name", playlist.name)
-                .put("tracks", JSONArray(playlist.trackIds)))
+                .put("tracks", JSONArray(playlist.trackIds)).put("files", JSONObject(playlist.trackFiles)))
         }
         preferences.edit().putString("lists", array.toString()).apply()
+        PlaylistBackup.schedule(context.applicationContext)
     }
-}
+    fun upsert(playlist: MusicPlaylist) = synchronized(lock) {
+        val all = load()
+        save(if (all.any { it.id == playlist.id }) all.map { if (it.id == playlist.id) playlist else it } else all + playlist)
+    }
+    fun delete(id: String) = synchronized(lock) { save(load().filterNot { it.id == id }) }
+    fun addTrack(id: String, trackId: String) = synchronized(lock) {
+        save(load().map { if (it.id == id) it.copy(trackIds = (it.trackIds + trackId).distinct()) else it })
+    }
+    fun removeTrack(id: String, trackId: String) = synchronized(lock) {
+        save(load().map { if (it.id == id) it.copy(trackIds = it.trackIds - trackId) else it })
+    }
+    fun create(name: String): String = synchronized(lock) {
+        val existing = load()
+        var unique = name.trim()
+        var suffix = 2
+        while (existing.any { it.name.equals(unique, true) }) unique = "${name.trim()} (${suffix++})"
+        val playlist = MusicPlaylist(UUID.randomUUID().toString(), unique, emptyList())
+        save(existing + playlist)
+        playlist.id
+    }}
 
 @Composable
 internal fun PlaylistControls(playlists: List<MusicPlaylist>, selectedId: String?, tracks: List<MediaItem>,
@@ -127,7 +150,8 @@ internal fun PlaylistControls(playlists: List<MusicPlaylist>, selectedId: String
             }, confirmButton = {
                 TextButton(enabled = name.isNotBlank() && !duplicate, onClick = {
                     val id = editingId ?: UUID.randomUUID().toString()
-                    onSave(MusicPlaylist(id, name.trim(), selectedTracks.toList()))
+                    onSave(MusicPlaylist(id, name.trim(), selectedTracks.toList(),
+                        playlists.firstOrNull { it.id == id }?.trackFiles?.filterKeys { it in selectedTracks }.orEmpty()))
                     onSelect(id)
                     editing = false
                 }) { Text(resources.getString(R.string.save)) }

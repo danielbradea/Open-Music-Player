@@ -186,17 +186,25 @@ class MainActivity : ComponentActivity() {
         var downloadDialog by remember { mutableStateOf(false) }
         var downloadUrl by rememberSaveable { mutableStateOf("") }
         var downloadError by remember { mutableStateOf<String?>(null) }
-        fun startDownload(url: String = downloadUrl) {
+        fun sendDownload(urls: List<String>, playlistName: String?, source: String) {
             try {
                 ContextCompat.startForegroundService(this@MainActivity,
-                    Intent(this@MainActivity, AudioDownloadService::class.java).putExtra("url", url.trim()))
+                    Intent(this@MainActivity, AudioDownloadService::class.java)
+                        .putStringArrayListExtra("urls", ArrayList(urls)).putExtra("playlist_name", playlistName)
+                        .putExtra("source_url", source))
                 downloadError = null
-            } catch (_: Exception) {
-                downloadError = getString(R.string.download_error)
-            }
+            } catch (_: Exception) { downloadError = getString(R.string.download_error) }
         }
+        fun startDownload(url: String = downloadUrl) = sendDownload(listOf(url), null, url)
+        var pendingDownload by rememberSaveable { mutableStateOf<String?>(null) }
         val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            startDownload()
+            pendingDownload?.let { data ->
+                val json = org.json.JSONObject(data)
+                val urls = json.getJSONArray("urls")
+                sendDownload(List(urls.length()) { index -> urls.getString(index) },
+                    json.optString("name").takeIf { it.isNotBlank() }, json.getString("source"))
+            }
+            pendingDownload = null
         }
         LaunchedEffect(sharedIntent) {
             val received = sharedIntent ?: return@LaunchedEffect
@@ -218,7 +226,7 @@ class MainActivity : ComponentActivity() {
             if (link == null) downloadError = getString(R.string.invalid_share)
             else {
                 downloadUrl = link
-                startDownload(link)
+                if (com.bid90.omp.download.YouTubePlaylist.playlistUrl(link) == null) startDownload(link)
             }
         }
         var observedCompleted by rememberSaveable { mutableLongStateOf(download.completed) }
@@ -226,49 +234,24 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(download.completed) {
             if (download.completed > observedCompleted) {
                 refresh++
-                if (downloadUrl.trim() == download.completedUrl) {
+                if (downloadUrl.trim() == download.finishedSource) {
                     downloadUrl = ""
                     downloadError = null
                 }
             }
             observedCompleted = download.completed
         }
-        if (downloadDialog) {
-            AlertDialog(onDismissRequest = { downloadDialog = false },
-                title = { Text(getString(R.string.download_audio)) },
-                text = {
-                    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(getString(R.string.download_info, LocalMusic.FOLDER_NAME))
-                        OutlinedTextField(value = downloadUrl, onValueChange = { downloadUrl = it; downloadError = null },
-                            enabled = !download.running, label = { Text(getString(R.string.link_label)) },
-                            singleLine = true, modifier = Modifier.fillMaxWidth())
-                        if (download.running) LinearProgressIndicator(
-                            progress = { download.progress / 100f }, modifier = Modifier.fillMaxWidth())
-                        if (download.message.isNotBlank()) Text(download.message, style = MaterialTheme.typography.bodySmall)
-                        if (download.queued > 0) Text(getString(R.string.queued_links, download.queued), style = MaterialTheme.typography.bodySmall)
-                        if (download.details.isNotBlank()) SelectionContainer {
-                            Text(download.details, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error)
-                        }
-                        downloadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    }
-                },
-                confirmButton = {
-                    if (download.running) TextButton(onClick = {
-                        startService(Intent(this@MainActivity, AudioDownloadService::class.java).setAction("cancel"))
-                    }) { Text(getString(R.string.cancel_download)) }
-                    else Button(enabled = AudioDownloadService.validUrl(downloadUrl) &&
-                        engineUpdate != com.bid90.omp.download.DownloadEngine.UpdateState.RUNNING, onClick = {
-                        if (!AudioDownloadService.validUrl(downloadUrl)) {
-                            downloadError = getString(R.string.valid_link)
-                        } else if (Build.VERSION.SDK_INT >= 33 &&
-                            ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else startDownload()
-                    }) { Text(getString(R.string.download_mp3)) }
-                },
-                dismissButton = { TextButton(onClick = { downloadDialog = false }) { Text(getString(R.string.close)) } })
-        }
+        if (downloadDialog) AudioDownloadDialog(downloadUrl, onUrlChange = { downloadUrl = it; downloadError = null },
+            download = download, error = downloadError, onDismiss = { downloadDialog = false },
+            onCancel = { startService(Intent(this@MainActivity, AudioDownloadService::class.java).setAction("cancel")) },
+            onDownload = { urls, name ->
+                if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this@MainActivity,
+                    Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    pendingDownload = org.json.JSONObject().put("urls", org.json.JSONArray(urls)).put("name", name ?: "")
+                        .put("source", downloadUrl.trim()).toString()
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else sendDownload(urls, name, downloadUrl.trim())
+            })
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             allowed = it
             refresh++
@@ -323,6 +306,14 @@ class MainActivity : ComponentActivity() {
         }
         val playlistStore = remember { PlaylistStore(this@MainActivity) }
         var playlists by remember { mutableStateOf(playlistStore.load()) }
+        DisposableEffect(playlistStore) {
+            val prefs = getSharedPreferences("playlists", MODE_PRIVATE)
+            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == "lists") playlists = playlistStore.load()
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
         var createPlaylist by rememberSaveable { mutableStateOf(false) }
         val libraryPreferences = remember { getSharedPreferences("library_state", MODE_PRIVATE) }
         var selectedPlaylistId by rememberSaveable { mutableStateOf(libraryPreferences.getString("playlist", null)) }
@@ -352,7 +343,30 @@ class MainActivity : ComponentActivity() {
         }
         var mainMenu by remember { mutableStateOf(false) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
-        if (settingsOpen) LanguageSettings(this@MainActivity, onDismiss = { settingsOpen = false }, onSelect = { code ->
+        var playlistFolderMessage by remember { mutableStateOf<String?>(null) }
+        var connectingFolder by remember { mutableStateOf(false) }
+        val playlistFolderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                connectingFolder = true
+                scope.launch {
+                    try {
+                        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                        val count = withContext(Dispatchers.IO) { PlaylistBackup.connect(this@MainActivity, uri) }
+                        playlists = playlistStore.load()
+                        playlistFolderMessage = getString(R.string.playlist_folder_connected, count)
+                    } catch (exception: Exception) {
+                        android.util.Log.w("PlaylistBackup", "Folder connection failed", exception)
+                        playlistFolderMessage = getString(R.string.playlist_folder_error)
+                    } finally { connectingFolder = false }
+                }
+            }
+        }
+        if (settingsOpen) LanguageSettings(this@MainActivity,
+            folderMessage = playlistFolderMessage, folderBusy = connectingFolder,
+            onChooseFolder = {
+                if (allowed) playlistFolderPicker.launch(null)
+                else playlistFolderMessage = getString(R.string.folder_needs_audio)
+            }, onDismiss = { settingsOpen = false }, onSelect = { code ->
             if (AppLanguage.selected(this@MainActivity) != code) {
                 AppLanguage.save(this@MainActivity, code)
                 recreate()
@@ -416,11 +430,8 @@ class MainActivity : ComponentActivity() {
                 Box {
                 PlaylistControls(playlists, selectedPlaylistId, tracks,
                     onSelect = { selectedPlaylistId = it },
-                    onSave = { playlist ->
-                        playlists = if (playlists.any { it.id == playlist.id }) playlists.map { if (it.id == playlist.id) playlist else it } else playlists + playlist
-                        playlistStore.save(playlists)
-                    },
-                    onDelete = { id -> playlists = playlists.filterNot { it.id == id }; playlistStore.save(playlists) },
+                    onSave = { playlist -> playlistStore.upsert(playlist); playlists = playlistStore.load() },
+                    onDelete = { id -> playlistStore.delete(id); playlists = playlistStore.load() },
                     createRequested = createPlaylist, onCreateHandled = { createPlaylist = false })
                 }
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -443,16 +454,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onDelete = { deleteError = null; deleteTarget = item },
                             onAddToPlaylist = { playlist ->
-                                playlists = playlists.map {
-                                    if (it.id == playlist.id) it.copy(trackIds = (it.trackIds + item.mediaId).distinct()) else it
-                                }
-                                playlistStore.save(playlists)
+                                playlistStore.addTrack(playlist.id, item.mediaId)
+                                playlists = playlistStore.load()
                             },
                             onRemoveFromPlaylist = selectedPlaylist?.let { playlist -> {
-                                playlists = playlists.map {
-                                    if (it.id == playlist.id) it.copy(trackIds = it.trackIds - item.mediaId) else it
-                                }
-                                playlistStore.save(playlists)
+                                playlistStore.removeTrack(playlist.id, item.mediaId)
+                                playlists = playlistStore.load()
                             } })
                     }
                 }

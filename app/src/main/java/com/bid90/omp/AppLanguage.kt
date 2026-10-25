@@ -3,6 +3,8 @@ package com.bid90.omp
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -33,13 +35,14 @@ internal object AppLanguage {
 }
 
 @Composable
-internal fun LanguageSettings(context: Context, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
+internal fun LanguageSettings(context: Context, folderMessage: String?, folderBusy: Boolean,
+                             onChooseFolder: () -> Unit, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     val update by DownloadEngine.updateState.collectAsState()
     val download by AudioDownloadService.state.collectAsState()
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text(context.getString(R.string.settings), color = Color.White) },
         text = {
-            Column {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
                 Text(context.getString(R.string.language), color = Color.White, modifier = Modifier.padding(bottom = 12.dp))
                 listOf("ro" to "Română", "en" to "English").forEach { (code, label) ->
                     val chosen = AppLanguage.selected(context) == code
@@ -50,6 +53,16 @@ internal fun LanguageSettings(context: Context, onDismiss: () -> Unit, onSelect:
                         Text(label, color = Color.White)
                     }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                Text(context.getString(R.string.playlist_storage_title), color = Color.White)
+                Text(context.getString(R.string.playlist_storage_info), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(enabled = !folderBusy, onClick = onChooseFolder) {
+                    Text(context.getString(R.string.choose_playlist_folder), color = Color.White)
+                }
+                if (folderBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                folderMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White) }
+                if (PlaylistBackup.lastError != null) Text(context.getString(R.string.playlist_folder_error), color = MaterialTheme.colorScheme.error)
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 TextButton(onClick = { DownloadEngine.requestUpdate(context.applicationContext) },
                     enabled = update != DownloadEngine.UpdateState.RUNNING && !download.running) {

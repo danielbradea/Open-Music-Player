@@ -41,7 +41,7 @@ Folderul este creat automat. Biblioteca afișează melodiile aflate direct în a
 | Șterge un fișier audio | Alege **Șterge de pe telefon** și confirmă. Android poate cere acord suplimentar pentru fișiere create de alte aplicații. |
 | Caută o melodie | Apasă lupa de lângă titlul bibliotecii. Căutarea se închide din **X**. |
 
-Playlisturile se salvează local pe telefon. Playerul compact deschide playerul complet la atingerea copertei sau a titlului.
+Playlisturile se salvează local pe telefon. Pentru a le păstra și după dezinstalare, deschide **Setări → Alege folderul / Restaurează** și selectează un folder, de exemplu `Music/OpenMusic`. Aplicația salvează automat `OMPlayer-playlists.json` în acel folder. După reinstalare, acordă accesul audio și selectează același folder pentru restaurare. Păstrează și fișierele audio; identificarea lor folosește numele fișierelor, nu doar ID-urile temporare MediaStore. Playerul compact deschide playerul complet la atingerea copertei sau a titlului.
 
 ## Descărcare audio
 
@@ -49,11 +49,11 @@ Playlisturile se salvează local pe telefon. Playerul compact deschide playerul 
 
 Deschide **⋮ → Descarcă audio din link**, introdu un URL HTTP/HTTPS valid și apasă **Descarcă MP3**. Butonul se activează doar pentru un link valid, iar câmpul se golește după descărcarea reușită.
 
-Se extrage o singură piesă, fără descărcarea unui playlist online. MP3-ul este salvat în `Music/OpenMusic`, iar biblioteca se actualizează automat. Miniatura sursei este încorporată drept copertă, când este disponibilă.
+Pentru un link individual se extrage o singură piesă. Dacă linkul conține un playlist YouTube, aplicația citește titlul și melodiile și îți permite să bifezi doar piesele dorite. Poți crea un playlist local cu numele de pe YouTube sau cu un nume personalizat. Piesele private ori indisponibile sunt marcate și nu pot fi selectate. Melodiile sunt descărcate pe rând, iar cele reușite sunt adăugate în playlistul local; anularea nu șterge piesele deja salvate. MP3-ul este salvat în `Music/OpenMusic`, iar biblioteca se actualizează automat. Miniatura sursei este încorporată drept copertă, când este disponibilă.
 
 ### Din YouTube sau YouTube Music
 
-Alege **Distribuie → OMPlayer**. Aplicația preia linkul și pornește descărcarea. Linkurile trimise în timpul unei descărcări sunt puse în coadă și procesate pe rând.
+Alege **Distribuie → OMPlayer**. Pentru o melodie individuală, aplicația preia linkul și pornește descărcarea. Pentru un playlist deschide mai întâi selecția melodiilor. Linkurile trimise în timpul unei descărcări sunt puse în coadă și procesate pe rând.
 
 ### Progres și actualizarea motorului
 

@@ -78,4 +78,21 @@
     <string name="engine_update_failed">Actualizarea a eșuat. Verifică internetul și încearcă din nou.</string>
     <string name="engine_wait_download">Actualizarea va fi disponibilă după terminarea descărcării.</string>
     <string name="playlist_options">Opțiuni playlist</string>
+    <string name="download_subtitle">MP3 · melodii și playlisturi YouTube</string>
+    <string name="playlist_loading">Citesc melodiile playlistului…</string>
+    <string name="playlist_load_error">Nu pot citi playlistul. Verifică linkul, accesul public și conexiunea.</string>
+    <string name="retry">Încearcă din nou</string>
+    <string name="playlist_selection_count">%1$d din %2$d melodii selectate</string>
+    <string name="create_local_playlist">Creează și un playlist în OMPlayer</string>
+    <string name="original_or_custom_name">Păstrează numele YouTube sau scrie unul personalizat.</string>
+    <string name="select_all">Selectează toate</string>
+    <string name="select_none">Niciuna</string>
+    <string name="unavailable_song">Privată sau indisponibilă</string>
+    <string name="download_selected">Descarcă %1$d melodii</string>
+    <string name="playlist_storage_title">Playlisturi păstrate în folder</string>
+    <string name="playlist_storage_info">Alege un folder, de exemplu Music/OpenMusic. Playlisturile se salvează automat în OMPlayer-playlists.json. După reinstalare, alege același folder pentru restaurare; păstrează și fișierele audio.</string>
+    <string name="choose_playlist_folder">Alege folderul / Restaurează</string>
+    <string name="playlist_folder_connected">Folder conectat. %1$d playlisturi restaurate. Modificările se salvează automat.</string>
+    <string name="playlist_folder_error">Nu pot salva sau restaura playlisturile. Alege din nou folderul și verifică accesul.</string>
+    <string name="folder_needs_audio">Acordă mai întâi accesul audio pentru restaurarea melodiilor din playlisturi.</string>
 </resources>
