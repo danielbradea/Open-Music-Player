@@ -57,6 +57,7 @@ Alege **Distribuie → OMPlayer**. Pentru o melodie individuală, aplicația pre
 
 ### Progres și actualizarea motorului
 
+- Dialogul arată câte melodii sunt descărcate, câte mai sunt și starea fiecăreia: în așteptare, în curs, descărcată, eșuată sau anulată.
 - Descărcarea continuă când închizi dialogul sau treci în altă aplicație.
 - Poți anula din dialog sau din notificare. Anularea golește și coada de linkuri.
 - Aplicația încearcă întâi motorul instalat. Dacă extragerea eșuează, încearcă actualizarea yt-dlp și reia descărcarea o singură dată.

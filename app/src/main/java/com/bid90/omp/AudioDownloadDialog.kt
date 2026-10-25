@@ -35,7 +35,7 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun AudioDownloadDialog(url: String, onUrlChange: (String) -> Unit, download: AudioDownloadState,
                                  error: String?, onDismiss: () -> Unit, onCancel: () -> Unit,
-                                 onDownload: (List<String>, String?) -> Unit) {
+                                 onDownload: (List<String>, String?, List<String>) -> Unit) {
     val context = LocalContext.current
     val engine by DownloadEngine.updateState.collectAsState()
     val playlistLink = YouTubePlaylist.playlistUrl(url)
@@ -96,7 +96,8 @@ internal fun AudioDownloadDialog(url: String, onUrlChange: (String) -> Unit, dow
                         Text(stringResource(R.string.playlist_load_error), color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { retry++ }) { Text(stringResource(R.string.retry)) }
                     }
-                    preview?.let { playlist ->
+                    if (download.items.isNotEmpty()) DownloadProgressPanel(download.items)
+                    preview?.takeIf { !download.running }?.let { playlist ->
                         Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = .05f), RoundedCornerShape(16.dp)).padding(14.dp)) {
                             Text(playlist.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (playlist.author.isNotBlank()) Text(playlist.author, style = MaterialTheme.typography.bodySmall)
@@ -134,7 +135,7 @@ internal fun AudioDownloadDialog(url: String, onUrlChange: (String) -> Unit, dow
                             }
                         }
                     }
-                    if (download.running) LinearProgressIndicator(progress = { download.progress / 100f }, modifier = Modifier.fillMaxWidth())
+                    if (download.running && download.items.isEmpty()) LinearProgressIndicator(progress = { download.progress / 100f }, modifier = Modifier.fillMaxWidth())
                     if (download.message.isNotBlank()) Text(download.message, style = MaterialTheme.typography.bodySmall)
                     if (download.queued > 0) Text(stringResource(R.string.queued_links, download.queued), style = MaterialTheme.typography.bodySmall)
                     if (download.details.isNotBlank()) SelectionContainer {
@@ -147,7 +148,8 @@ internal fun AudioDownloadDialog(url: String, onUrlChange: (String) -> Unit, dow
                     Text(stringResource(R.string.cancel_download))
                 } else Button(enabled = ready, onClick = {
                     onDownload(if (playlistLink == null) listOf(url.trim()) else selection.map { it.url },
-                        if (playlistLink != null && createLocal) name.trim() else null)
+                        if (playlistLink != null && createLocal) name.trim() else null,
+                        if (playlistLink == null) listOf(url.trim()) else selection.map { it.title })
                 }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Text(if (playlistLink != null) stringResource(R.string.download_selected, selection.size) else stringResource(R.string.download_mp3))
                 }

@@ -14,11 +14,12 @@ import com.yausername.ffmpeg.FFmpeg
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 
-data class AudioDownloadState(
+internal data class AudioDownloadState(
     val running: Boolean = false,
     val progress: Int = 0,
     val message: String = "",
@@ -26,7 +27,8 @@ data class AudioDownloadState(
     val queued: Int = 0,
     val completed: Long = 0,
     val completedUrl: String = "",
-    val finishedSource: String = ""
+    val finishedSource: String = "",
+    val items: List<DownloadItem> = emptyList()
 )
 
 class AudioDownloadService : Service() {
@@ -35,7 +37,7 @@ class AudioDownloadService : Service() {
         private const val NOTIFICATION = 42
         private const val CANCEL = "cancel"
         private val mutableState = MutableStateFlow(AudioDownloadState())
-        val state = mutableState.asStateFlow()
+        internal val state = mutableState.asStateFlow()
         fun validUrl(value: String): Boolean = runCatching {
             val uri = Uri.parse(value.trim())
             uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null
@@ -46,7 +48,8 @@ class AudioDownloadService : Service() {
     @Volatile private var cancelled = false
     private var task: Job? = null
     private var processId = ""
-    private data class DownloadJob(val url: String, val playlistId: String? = null, val sourceUrl: String = url)
+    private data class DownloadJob(val url: String, val playlistId: String? = null, val sourceUrl: String = url,
+                                   val title: String = url, val id: String = UUID.randomUUID().toString())
     private val pending = ConcurrentLinkedQueue<DownloadJob>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -64,6 +67,9 @@ class AudioDownloadService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("OpenMusic · Descărcare audio")
+            .setSubText(mutableState.value.items.counts().let { "${it.done}/${it.total}" })
+            .setStyle(Notification.BigTextStyle().bigText(
+                listOfNotNull(mutableState.value.items.firstOrNull { it.status == DownloadStatus.DOWNLOADING }?.title, message).joinToString("\n")))
             .setContentText(message).setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true)
             .setProgress(100, progress, progress == 0)
             .addAction(Notification.Action.Builder(null, "Anulează", cancel).build()).build()
@@ -73,7 +79,7 @@ class AudioDownloadService : Service() {
         if (intent?.action == CANCEL) {
             cancelled = true
             pending.clear()
-            mutableState.value = mutableState.value.copy(queued = 0)
+            mutableState.update { it.copy(queued = 0, items = it.items.cancelOutstanding()) }
             scope.launch { YoutubeDL.destroyProcessById(processId) }
             if (task == null) stopSelf()
             return START_NOT_STICKY
@@ -84,10 +90,15 @@ class AudioDownloadService : Service() {
         val playlistName = intent?.getStringExtra("playlist_name")?.trim()?.takeIf { it.isNotBlank() }
         val playlistId = playlistName?.let { com.bid90.omp.PlaylistStore(this).create(it) }
         val source = intent?.getStringExtra("source_url") ?: urls.first()
-        val jobs = urls.map { DownloadJob(it, playlistId, source) }
+        val titles = intent?.getStringArrayListExtra("titles")
+        val jobs = urls.mapIndexed { index, url -> DownloadJob(url, playlistId, source, titles?.getOrNull(index)?.takeIf { it.isNotBlank() } ?: url) }
+        mutableState.update { state ->
+            val previous = if (task == null) emptyList() else state.items
+            state.copy(items = previous + jobs.map { DownloadItem(it.id, it.url, it.title, it.sourceUrl) })
+        }
         if (task != null) {
             pending.addAll(jobs)
-            mutableState.value = mutableState.value.copy(queued = pending.size)
+            mutableState.update { state -> state.copy(queued = pending.size) }
         } else {
             pending.addAll(jobs.drop(1))
             startDownload(jobs.first())
@@ -97,9 +108,10 @@ class AudioDownloadService : Service() {
     private fun startDownload(job: DownloadJob) {
         val url = job.url
         cancelled = false
+        mutableState.update { it.copy(items = it.items.mark(job.id, DownloadStatus.DOWNLOADING)) }
         processId = UUID.randomUUID().toString()
-        mutableState.value = mutableState.value.copy(running = true, progress = 0, queued = pending.size,
-            details = "", finishedSource = "", message = "Pregătesc descărcarea…")
+        mutableState.update { state -> state.copy(running = true, progress = 0, queued = pending.size,
+            details = "", finishedSource = "", message = "Pregătesc descărcarea…") }
         startForeground(NOTIFICATION, notification("Pregătesc descărcarea…", 0))
         task = scope.launch {
             val directory = File(cacheDir, "audio-$processId")
@@ -109,7 +121,7 @@ class AudioDownloadService : Service() {
                 YoutubeDL.init(applicationContext)
                 FFmpeg.init(applicationContext)
                 if (cancelled) throw CancellationException()
-                mutableState.value = mutableState.value.copy(message = "Citesc linkul și caut sursa audio…")
+                mutableState.update { state -> state.copy(message = "Citesc linkul și caut sursa audio…") }
                 val request = YoutubeDLRequest(url).apply {
                     addOption("--remote-components", "ejs:github")
                     addOption("--no-playlist")
@@ -129,7 +141,7 @@ class AudioDownloadService : Service() {
                     val updating = if (com.bid90.omp.AppLanguage.selected(this@AudioDownloadService) == "en")
                         "Download failed. Updating engine before one retry…"
                     else "Descărcarea a eșuat. Actualizez motorul și reîncerc o dată…"
-                    mutableState.value = mutableState.value.copy(progress = 0, message = updating)
+                    mutableState.update { state -> state.copy(progress = 0, message = updating) }
                     getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(updating, 0))
                     try {
                         DownloadEngine.updateIfNeeded(applicationContext, force = true)
@@ -141,18 +153,19 @@ class AudioDownloadService : Service() {
                     if (cancelled) throw CancellationException()
                     // Discard partial extraction output before the single fresh attempt.
                     directory.listFiles()?.forEach { it.deleteRecursively() }
-                    mutableState.value = mutableState.value.copy(progress = 0, details = "",
+                    mutableState.update { state -> state.copy(progress = 0, details = "",
                         message = if (com.bid90.omp.AppLanguage.selected(this@AudioDownloadService) == "en")
-                            "Retrying download…" else "Reîncerc descărcarea…")
+                            "Retrying download…" else "Reîncerc descărcarea…") }
                 }) {
                 var lastProgress = -1
                 YoutubeDL.execute(request, processId) { percent, _, _ ->
                     if (cancelled) YoutubeDL.destroyProcessById(processId)
                     val progress = percent.toInt().coerceIn(0, 100)
-                    if (progress != lastProgress) {
+                    if (!cancelled && progress != lastProgress) {
                         lastProgress = progress
                         val message = if (progress >= 100) "Procesez fișierul audio…" else "Descarc audio: $progress%"
-                        mutableState.value = mutableState.value.copy(progress = progress, message = message)
+                        mutableState.update { state -> state.copy(progress = progress, message = message,
+                            items = state.items.mark(job.id, DownloadStatus.DOWNLOADING, progress)) }
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(message, progress))
                     }
                 }
@@ -162,17 +175,21 @@ class AudioDownloadService : Service() {
                 }
                 val mediaId = publishAudio(file)
                 job.playlistId?.let { com.bid90.omp.PlaylistStore(this@AudioDownloadService).addTrack(it, mediaId) }
-                mutableState.value = AudioDownloadState(running = pending.isNotEmpty(), message = "Salvat în ${LocalMusic.FOLDER_NAME}. Piesa este în bibliotecă.",
+                mutableState.update { state -> state.copy(items = state.items.mark(job.id, DownloadStatus.DONE, 100),
+                    running = pending.isNotEmpty(), message = "Salvat în ${LocalMusic.FOLDER_NAME}. Piesa este în bibliotecă.",
                     queued = pending.size,
-                    completed = mutableState.value.completed + 1, completedUrl = job.sourceUrl,
-                    finishedSource = if (pending.isEmpty()) job.sourceUrl else "")
+                    completed = state.completed + 1, completedUrl = job.sourceUrl,
+                    finishedSource = if (pending.isEmpty()) job.sourceUrl else "") }
             } catch (e: Exception) {
                 android.util.Log.e("AudioDownload", "Download failed", e)
                 val details = DownloadEngine.errorDetails(e)
-                mutableState.value = mutableState.value.copy(running = pending.isNotEmpty() && !cancelled, progress = 0,
+                mutableState.update { state -> state.copy(running = pending.isNotEmpty() && !cancelled, progress = 0,
                     message = if (cancelled || e is CancellationException) "Descărcare anulată."
                     else DownloadEngine.errorMessage(details),
-                    details = if (cancelled || e is CancellationException) "" else details)
+                    details = if (cancelled || e is CancellationException) "" else details,
+                    items = state.items.mark(job.id,
+                        if (cancelled || e is CancellationException) DownloadStatus.CANCELLED else DownloadStatus.FAILED,
+                        error = if (cancelled || e is CancellationException) "" else DownloadEngine.errorMessage(details))) }
             } finally {
                 directory.deleteRecursively()
                 withContext(NonCancellable + Dispatchers.Main) {
@@ -222,8 +239,9 @@ class AudioDownloadService : Service() {
         // Blocking native work must be terminated explicitly as coroutine cancellation alone cannot stop it.
         Thread { YoutubeDL.destroyProcessById(processId) }.start()
         scope.cancel()
-        if (mutableState.value.running) mutableState.value = mutableState.value.copy(
-            running = false, message = "Descărcarea a fost întreruptă. Poți încerca din nou.")
+        if (mutableState.value.running) mutableState.update { state -> state.copy(
+            running = false, items = state.items.cancelOutstanding(),
+            message = "Descărcarea a fost întreruptă. Poți încerca din nou.") }
         super.onDestroy()
     }
 }

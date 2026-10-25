@@ -95,4 +95,13 @@
     <string name="playlist_folder_connected">Folder conectat. %1$d playlisturi restaurate. Modificările se salvează automat.</string>
     <string name="playlist_folder_error">Nu pot salva sau restaura playlisturile. Alege din nou folderul și verifică accesul.</string>
     <string name="folder_needs_audio">Acordă mai întâi accesul audio pentru restaurarea melodiilor din playlisturi.</string>
+    <string name="batch_download_title">Descărcări · %1$d melodii</string>
+    <string name="batch_download_summary">%1$d descărcate · %2$d rămase</string>
+    <string name="batch_download_failures">%1$d eșuate · %2$d anulate</string>
+    <string name="batch_current">Acum: %1$s · %2$d%%</string>
+    <string name="song_downloaded">Descărcată</string>
+    <string name="song_download_failed">Descărcare eșuată</string>
+    <string name="song_download_cancelled">Anulată</string>
+    <string name="song_downloading">Se descarcă · %1$d%%</string>
+    <string name="song_download_waiting">În așteptare</string>
 </resources>

@@ -186,11 +186,11 @@ class MainActivity : ComponentActivity() {
         var downloadDialog by remember { mutableStateOf(false) }
         var downloadUrl by rememberSaveable { mutableStateOf("") }
         var downloadError by remember { mutableStateOf<String?>(null) }
-        fun sendDownload(urls: List<String>, playlistName: String?, source: String) {
+        fun sendDownload(urls: List<String>, playlistName: String?, source: String, titles: List<String> = urls) {
             try {
                 ContextCompat.startForegroundService(this@MainActivity,
                     Intent(this@MainActivity, AudioDownloadService::class.java)
-                        .putStringArrayListExtra("urls", ArrayList(urls)).putExtra("playlist_name", playlistName)
+                        .putStringArrayListExtra("urls", ArrayList(urls)).putStringArrayListExtra("titles", ArrayList(titles)).putExtra("playlist_name", playlistName)
                         .putExtra("source_url", source))
                 downloadError = null
             } catch (_: Exception) { downloadError = getString(R.string.download_error) }
@@ -202,7 +202,8 @@ class MainActivity : ComponentActivity() {
                 val json = org.json.JSONObject(data)
                 val urls = json.getJSONArray("urls")
                 sendDownload(List(urls.length()) { index -> urls.getString(index) },
-                    json.optString("name").takeIf { it.isNotBlank() }, json.getString("source"))
+                    json.optString("name").takeIf { it.isNotBlank() }, json.getString("source"),
+                    json.optJSONArray("titles")?.let { values -> List(values.length()) { index -> values.getString(index) } } ?: emptyList())
             }
             pendingDownload = null
         }
@@ -244,13 +245,13 @@ class MainActivity : ComponentActivity() {
         if (downloadDialog) AudioDownloadDialog(downloadUrl, onUrlChange = { downloadUrl = it; downloadError = null },
             download = download, error = downloadError, onDismiss = { downloadDialog = false },
             onCancel = { startService(Intent(this@MainActivity, AudioDownloadService::class.java).setAction("cancel")) },
-            onDownload = { urls, name ->
+            onDownload = { urls, name, titles ->
                 if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this@MainActivity,
                     Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     pendingDownload = org.json.JSONObject().put("urls", org.json.JSONArray(urls)).put("name", name ?: "")
-                        .put("source", downloadUrl.trim()).toString()
+                        .put("source", downloadUrl.trim()).put("titles", org.json.JSONArray(titles)).toString()
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else sendDownload(urls, name, downloadUrl.trim())
+                } else sendDownload(urls, name, downloadUrl.trim(), titles)
             })
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             allowed = it
